@@ -58,7 +58,7 @@ const RegionInfo regions[] = {
     /*
         https://lora-alliance.org/wp-content/uploads/2020/11/lorawan_regional_parameters_v1.0.3reva_0.pdf
      */
-    RDEF(CN, 470.0f, 510.0f, 100, 0, 19, true, false, false),
+    RDEF(CN, 470.0f, 510.0f, 100, 0, 22, true, false, false),
 
     /*
         https://lora-alliance.org/wp-content/uploads/2020/11/lorawan_regional_parameters_v1.0.3reva_0.pdf
@@ -558,8 +558,8 @@ void RadioInterface::applyModemConfig()
 
     power = loraConfig.tx_power;
 
-    if ((power == 0) || ((power > myRegion->powerLimit) && !devicestate.owner.is_licensed))
-        power = myRegion->powerLimit;
+/*     if ((power == 0) || ((power > myRegion->powerLimit) && !devicestate.owner.is_licensed))
+        power = myRegion->powerLimit; */
 
     if (power == 0)
         power = 17; // Default to this power level if we don't have a valid regional power limit (powerLimit of myRegion defaults
@@ -638,13 +638,13 @@ void RadioInterface::limitPower(int8_t loraMaxPower)
 {
     uint8_t maxPower = 255; // No limit
 
-    if (myRegion->powerLimit)
+/*     if (myRegion->powerLimit)
         maxPower = myRegion->powerLimit;
 
     if ((power > maxPower) && !devicestate.owner.is_licensed) {
         LOG_INFO("Lower transmit power because of regulatory limits");
         power = maxPower;
-    }
+    } */
 
 #ifndef NUM_PA_POINTS
     if (TX_GAIN_LORA > 0) {
