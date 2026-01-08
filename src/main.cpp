@@ -107,6 +107,10 @@ NRF52Bluetooth *nrf52Bluetooth = nullptr;
 
 #if defined(BUTTON_PIN_TOUCH)
 ButtonThread *TouchButtonThread = nullptr;
+#if defined(TTGO_T_ECHO_PLUS) && defined(PIN_EINK_EN)
+static bool touchBacklightWasOn = false;
+static bool touchBacklightActive = false;
+#endif
 #endif
 
 #if defined(BUTTON_PIN) || defined(ARCH_PORTDUINO)
@@ -205,7 +209,7 @@ ScanI2C::FoundDevice rgb_found = ScanI2C::FoundDevice(ScanI2C::DeviceType::NONE,
 /// The I2C address of our Air Quality Indicator (if found)
 ScanI2C::DeviceAddress aqi_found = ScanI2C::ADDRESS_NONE;
 
-#if defined(T_WATCH_S3) || defined(T_LORA_PAGER)
+#ifdef HAS_DRV2605
 Adafruit_DRV2605 drv;
 #endif
 
@@ -394,7 +398,10 @@ void setup()
     io.pinMode(EXPANDS_GPIO_EN, OUTPUT);
     io.digitalWrite(EXPANDS_GPIO_EN, HIGH);
     io.pinMode(EXPANDS_SD_PULLEN, INPUT);
+#elif defined(HACKADAY_COMMUNICATOR)
+    pinMode(KB_INT, INPUT);
 #endif
+
     concurrency::hasBeenSetup = true;
 #if ARCH_PORTDUINO
     SPISettings spiSettings(portduino_config.spiSpeed, MSBFIRST, SPI_MODE0);
@@ -435,6 +442,13 @@ void setup()
     serialSinceMsec = millis();
 
     LOG_INFO("\n\n//\\ E S H T /\\ S T / C\n");
+
+#if defined(ARCH_ESP32) && defined(BOARD_HAS_PSRAM)
+#ifndef SENSECAP_INDICATOR
+    // use PSRAM for malloc calls > 256 bytes
+    heap_caps_malloc_extmem_enable(256);
+#endif
+#endif
 
 #if defined(DEBUG_MUTE) && defined(DEBUG_PORT)
     DEBUG_PORT.printf("\r\n\r\n//\\ E S H T /\\ S T / C\r\n");
@@ -778,7 +792,6 @@ void setup()
     // We do this as early as possible because this loads preferences from flash
     // but we need to do this after main cpu init (esp32setup), because we need the random seed set
     nodeDB = new NodeDB;
-
 #if HAS_TFT
     if (config.display.displaymode == meshtastic_Config_DisplayConfig_DisplayMode_COLOR) {
         tftSetup();
@@ -824,7 +837,12 @@ void setup()
 #endif
 #endif
 
-#if defined(T_WATCH_S3) || defined(T_LORA_PAGER)
+#ifdef HAS_DRV2605
+#if defined(PIN_DRV_EN)
+    pinMode(PIN_DRV_EN, OUTPUT);
+    digitalWrite(PIN_DRV_EN, HIGH);
+    delay(10);
+#endif
     drv.begin();
     drv.selectLibrary(1);
     // I2C trigger by sending 'go' command
@@ -860,7 +878,7 @@ void setup()
     SPI.begin();
 #endif
 #else
-        // ESP32
+// ESP32
 #if defined(HW_SPI1_DEVICE)
     SPI1.begin(LORA_SCK, LORA_MISO, LORA_MOSI, LORA_CS);
     LOG_DEBUG("SPI1.begin(SCK=%d, MISO=%d, MOSI=%d, NSS=%d)", LORA_SCK, LORA_MISO, LORA_MOSI, LORA_CS);
@@ -877,8 +895,8 @@ void setup()
     if (config.display.displaymode != meshtastic_Config_DisplayConfig_DisplayMode_COLOR) {
 
 #if defined(ST7701_CS) || defined(ST7735_CS) || defined(USE_EINK) || defined(ILI9341_DRIVER) || defined(ILI9342_DRIVER) ||       \
-    defined(ST7789_CS) || defined(HX8357_CS) || defined(USE_ST7789) || defined(ILI9488_CS) || defined(ST7796_CS) || defined(USE_ST7796) ||              \
-    defined(USE_SPISSD1306)
+    defined(ST7789_CS) || defined(HX8357_CS) || defined(USE_ST7789) || defined(ILI9488_CS) || defined(ST7796_CS) ||              \
+    defined(USE_SPISSD1306) || defined(USE_ST7796) || defined(HACKADAY_COMMUNICATOR)
         screen = new graphics::Screen(screen_found, screen_model, screen_geometry);
 #elif defined(ARCH_PORTDUINO)
         if ((screen_found.port != ScanI2C::I2CPort::NO_I2C || portduino_config.displayPanel) &&
@@ -1029,6 +1047,24 @@ void setup()
     };
     touchConfig.singlePress = INPUT_BROKER_NONE;
     touchConfig.longPress = INPUT_BROKER_BACK;
+#if defined(TTGO_T_ECHO_PLUS) && defined(PIN_EINK_EN)
+    // On T-Echo Plus the touch pad should only drive the backlight, not UI navigation/sounds
+    touchConfig.longPress = INPUT_BROKER_NONE;
+    touchConfig.suppressLeadUpSound = true;
+    touchConfig.onPress = []() {
+        touchBacklightWasOn = uiconfig.screen_brightness == 1;
+        if (!touchBacklightWasOn) {
+            digitalWrite(PIN_EINK_EN, HIGH);
+        }
+        touchBacklightActive = true;
+    };
+    touchConfig.onRelease = []() {
+        if (touchBacklightActive && !touchBacklightWasOn) {
+            digitalWrite(PIN_EINK_EN, LOW);
+        }
+        touchBacklightActive = false;
+    };
+#endif
     TouchButtonThread->initButton(touchConfig);
 #endif
 
@@ -1154,8 +1190,8 @@ void setup()
 // Don't call screen setup until after nodedb is setup (because we need
 // the current region name)
 #if defined(ST7701_CS) || defined(ST7735_CS) || defined(USE_EINK) || defined(ILI9341_DRIVER) || defined(ILI9342_DRIVER) ||       \
-    defined(ST7789_CS) || defined(HX8357_CS) || defined(USE_ST7789) || defined(ILI9488_CS) || defined(ST7796_CS) || defined(USE_ST7796) ||              \
-    defined(USE_SPISSD1306)
+    defined(ST7789_CS) || defined(HX8357_CS) || defined(USE_ST7789) || defined(ILI9488_CS) || defined(ST7796_CS) ||              \
+    defined(USE_ST7796) || defined(USE_SPISSD1306) || defined(HACKADAY_COMMUNICATOR)
     if (screen)
         screen->setup();
 #elif defined(ARCH_PORTDUINO)
@@ -1448,7 +1484,9 @@ void setup()
 #endif
 
 #if defined(HAS_TRACKBALL) || (defined(INPUTDRIVER_ENCODER_TYPE) && INPUTDRIVER_ENCODER_TYPE == 2)
+#ifndef HAS_PHYSICAL_KEYBOARD
     osk_found = true;
+#endif
 #endif
 
 #if defined(ARCH_ESP32) && !MESHTASTIC_EXCLUDE_WEBSERVER
