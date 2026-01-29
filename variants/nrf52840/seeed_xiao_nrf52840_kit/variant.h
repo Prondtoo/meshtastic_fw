@@ -94,7 +94,9 @@ static const uint8_t A5 = PIN_A5;
 /*
  * Pinout for SX126x
  */
-#define USE_SX1262
+//#define USE_SX1262
+#define USE_SX1268
+#define TCXO_OPTIONAL
 
 #ifdef XIAO_BLE_LEGACY_PINOUT
 // Legacy xiao_ble variant pinout for third-party SX126x modules e.g. EBYTE E22
@@ -125,7 +127,7 @@ static const uint8_t A5 = PIN_A5;
 // Common pinouts for all SX126x pinouts above
 #define SX126X_TXEN RADIOLIB_NC
 #define SX126X_DIO2_AS_RF_SWITCH // DIO2 is used to control the TX side of the RF switch
-#define SX126X_DIO3_TCXO_VOLTAGE 1.8
+#define SX126X_DIO3_TCXO_VOLTAGE 2.2
 
 /*
  * SPI Interfaces
