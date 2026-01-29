@@ -126,7 +126,6 @@ static const uint8_t SCK = PIN_SPI_SCK;
 #define SX126X_RXEN 38
 #define SX126X_TXEN RADIOLIB_NC
 #define SX126X_DIO3_TCXO_VOLTAGE 1.8
-#define SX126X_DIO3_TCXO_VOLTAGE 1.8
 #endif
 
 // Wire Interfaces
